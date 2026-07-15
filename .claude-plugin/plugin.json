@@ -1,0 +1,64 @@
+{
+  "name": "opencode",
+  "version": "0.1.0",
+  "description": "Use an OpenCode Go subscription as Claude Code's cheap executor. Claude conducts — requirements, architecture, the hard 20%, verification, review — and routes deterministic, high-volume work (scaffolding, implementation against a spec, test generation, migrations, first-pass review) to OpenCode's curated open-source coding models via the headless `opencode run` CLI. Hybrid agentic engineering with cost-aware 3-tier model routing.",
+  "author": {
+    "name": "katsu1110"
+  },
+  "homepage": "https://opencode.ai/docs/go/",
+  "keywords": [
+    "opencode",
+    "opencode-go",
+    "multi-agent",
+    "orchestration",
+    "delegation",
+    "sdlc",
+    "agentic-engineering",
+    "model-routing",
+    "cost-optimization"
+  ],
+  "userConfig": {
+    "default_tier": {
+      "type": "string",
+      "title": "Default OpenCode Go tier",
+      "description": "Tier used by oc-delegate when --tier is not passed. One of: flash (deepseek-v4-flash, default — bulk work, ~158k req/mo), code (kimi-k2.7-code — implementation), pro (glm-5.2 — hard reasoning/review, scarce ~4.3k req/mo).",
+      "default": "flash"
+    },
+    "timeout": {
+      "type": "string",
+      "title": "Default delegation timeout",
+      "description": "Default wall-clock timeout for oc-delegate when --timeout is not passed, e.g. 10m, 300s.",
+      "default": "10m"
+    },
+    "default_model": {
+      "type": "string",
+      "title": "Default executor model (provider/model)",
+      "description": "Exact model in opencode's provider/model format (see `opencode models`) used when --tier/--model are not passed. Leave empty to use the tier mapping. Keep the executor a different, cheaper model than the Claude conductor.",
+      "default": ""
+    },
+    "tier_flash": {
+      "type": "string",
+      "title": "Model for the 'flash' tier",
+      "description": "Override the model the 'flash' tier maps to (default: opencode-go/deepseek-v4-flash). Use provider/model from `opencode models`.",
+      "default": ""
+    },
+    "tier_code": {
+      "type": "string",
+      "title": "Model for the 'code' tier",
+      "description": "Override the model the 'code' tier maps to (default: opencode-go/kimi-k2.7-code). Use provider/model from `opencode models`.",
+      "default": ""
+    },
+    "tier_pro": {
+      "type": "string",
+      "title": "Model for the 'pro' tier",
+      "description": "Override the model the 'pro' tier maps to (default: opencode-go/glm-5.2). Use provider/model from `opencode models`.",
+      "default": ""
+    },
+    "digest_warn_chars": {
+      "type": "string",
+      "title": "Digest-size warning threshold (chars)",
+      "description": "oc-delegate warns on stderr when a reply exceeds this many characters — a raw dump instead of the digest the cost discipline calls for. Empty = 8000. Set 0 to disable.",
+      "default": ""
+    }
+  }
+}

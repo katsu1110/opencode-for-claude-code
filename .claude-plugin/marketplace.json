@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "opencode-for-claude-code",
+  "description": "Use an OpenCode Go subscription as Claude Code's cheap executor: Claude conducts, OpenCode Go models execute, with cost-aware 3-tier model routing.",
+  "owner": {
+    "name": "katsu1110"
+  },
+  "plugins": [
+    {
+      "name": "opencode",
+      "description": "Hybrid Claude Code + OpenCode Go workflow: Claude conducts requirements/architecture/the hard 20%/verification, and routes deterministic, high-volume work (scaffolding, well-specified implementation, test generation, migrations, first-pass review) to cheap curated OSS coding models via the headless opencode CLI.",
+      "source": "./",
+      "category": "ai",
+      "keywords": ["opencode", "opencode-go", "multi-agent", "sdlc", "model-routing"]
+    }
+  ]
+}
