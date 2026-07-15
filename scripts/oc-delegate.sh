@@ -71,11 +71,12 @@ need() { [ "$1" -ge 2 ] || die "option '$2' needs a value"; }
 # QUOTA failures advertise `--continue` so a caller knows how to resume the session
 # once the limit window resets.
 signal() {
-  local status="$1" reason="$2" retry=""
+  local status="$1" reason="$2" retry="" model_safe
   [ "$status" = "QUOTA_EXHAUSTED" ] && retry="--continue"
   reason="$(printf '%s' "$reason" | tr '\n\r\t' '   ' | tr -d '"\\' | cut -c1-200)"
+  model_safe="$(printf '%s' "${MODEL:-}" | tr -d '"\\')"
   printf 'OC_SIGNAL {"status":"%s","reason":"%s","model":"%s","retry":"%s"}\n' \
-    "$status" "$reason" "${MODEL:-}" "$retry" >&2
+    "$status" "$reason" "$model_safe" "$retry" >&2
 }
 
 # Print the header comment between "# Usage:" and "# Exit codes:" (anchored to
@@ -172,7 +173,16 @@ fi
 SECS="$(to_seconds "$TIMEOUT")"
 OUT="$(mktemp)"; ERR="$(mktemp)"; TIMED_OUT_MARK="$(mktemp)"
 rm -f "$TIMED_OUT_MARK"
-cleanup() { rm -f "$OUT" "$ERR" "$TIMED_OUT_MARK"; }
+RUN_PID=""; WATCHDOG=""
+# Also reap the children on any exit (e.g. SIGINT), so an interrupted wrapper
+# never leaves an opencode agent running invisibly against the Go quota.
+cleanup() {
+  # `|| true` throughout: a failed kill in an EXIT trap under `set -e` would
+  # otherwise abort the trap and clobber the wrapper's contractual exit code.
+  { [ -n "$WATCHDOG" ] && kill "$WATCHDOG" 2>/dev/null; } || true
+  { [ -n "$RUN_PID" ] && kill "$RUN_PID" 2>/dev/null; } || true
+  rm -f "$OUT" "$ERR" "$TIMED_OUT_MARK" || true
+}
 trap cleanup EXIT
 
 set +e
@@ -204,16 +214,15 @@ if [ -f "$TIMED_OUT_MARK" ]; then
   exit 12
 fi
 
-# --- classify failures from combined output (opencode error text varies) ---
-COMBINED="$STDERR_TXT
-$STDOUT_TXT"
+# --- classify failures from stderr (stdout may quote quota/auth words from the
+# task itself, e.g. when the delegated work is about rate limiting) ---
 if [ "$RC" -ne 0 ]; then
-  if printf '%s' "$COMBINED" | grep -qiE 'quota|rate.?limit|usage.?limit|too many requests|429|overloaded|limit (reached|exceeded)'; then
+  if printf '%s' "$STDERR_TXT" | grep -qiE 'quota|rate.?limit|usage.?limit|too many requests|429|overloaded|limit (reached|exceeded)'; then
     signal "QUOTA_EXHAUSTED" "$STDERR_TXT"
     echo "oc-delegate: OpenCode Go usage limit hit (5h/weekly/monthly are dollar-based). Retry after the window resets." >&2
     exit 10
   fi
-  if printf '%s' "$COMBINED" | grep -qiE 'unauthorized|not authenticated|invalid api key|401|forbidden|auth'; then
+  if printf '%s' "$STDERR_TXT" | grep -qiE 'unauthorized|not authenticated|authentication|invalid api key|401|forbidden'; then
     signal "AUTH_REQUIRED" "$STDERR_TXT"
     echo "oc-delegate: authentication failed. Run 'opencode auth login' (or /connect in the TUI)." >&2
     exit 11

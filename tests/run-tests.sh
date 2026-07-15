@@ -12,6 +12,7 @@ export CLAUDE_PLUGIN_OPTION_TIER_CODE="opencode-go/kimi-k2.7-code"
 export CLAUDE_PLUGIN_OPTION_TIER_PRO="opencode-go/glm-5.2"
 
 TMP_DIR="$(mktemp -d)"
+[ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ] || { echo "FATAL: mktemp -d failed"; exit 1; }
 trap 'rm -rf "$TMP_DIR"' EXIT
 export HOME="$TMP_DIR"
 mkdir -p "$TMP_DIR/bin"
