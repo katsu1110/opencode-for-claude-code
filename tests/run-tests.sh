@@ -125,6 +125,40 @@ test_l() {
   echo "$out" | grep -q -- "-m opencode-go/custom-flash"
 }
 
+# (m) malformed timeout suffixes are rejected (10ms is not 10 minutes)
+test_m() {
+  ! "$SCRIPT" --timeout 10ms --print-command "x" 2>/dev/null
+}
+
+# (n) fractional and non-numeric timeouts are rejected
+test_n() {
+  ! "$SCRIPT" --timeout 10.5m --print-command "x" 2>/dev/null &&
+  ! "$SCRIPT" --timeout m --print-command "x" 2>/dev/null
+}
+
+# (o) valid seconds timeout is accepted
+test_o() {
+  out="$("$SCRIPT" --timeout 300s --print-command "x")"
+  echo "$out" | grep -q -- "-m opencode-go/deepseek-v4-flash"
+}
+
+HOOK="$PLUGIN_DIR/hooks/validate-delegate-bash.sh"
+
+# (p) hook rejects prefix-lookalike wrapper names
+test_p() {
+  ! printf '%s' '{"tool_input":{"command":"backdoor-oc-delegate x"}}' | "$HOOK" 2>/dev/null
+}
+
+# (q) hook rejects cat piping arbitrary files into the wrapper
+test_q() {
+  ! printf '%s' '{"tool_input":{"command":"cat /etc/passwd | oc-delegate -"}}' | "$HOOK" 2>/dev/null
+}
+
+# (r) hook accepts printf pipe to a fully-qualified wrapper path
+test_r() {
+  printf '%s' '{"tool_input":{"command":"printf x | /usr/local/bin/oc-delegate -"}}' | "$HOOK" 2>/dev/null
+}
+
 run_test "(a) --print-command tier mapping" test_a
 run_test "(b) --write adds --auto" test_b
 run_test "(c) --digest appends trailer" test_c
@@ -137,6 +171,12 @@ run_test "(i) unauthorized yields exit 11" test_i
 run_test "(j) empty output yields exit 3" test_j
 run_test "(k) hello yields exit 0" test_k
 run_test "(l) TIER override" test_l
+run_test "(m) malformed timeout 10ms rejected" test_m
+run_test "(n) fractional/non-numeric timeout rejected" test_n
+run_test "(o) valid timeout 300s accepted" test_o
+run_test "(p) hook rejects prefix lookalike" test_p
+run_test "(q) hook rejects cat pipe" test_q
+run_test "(r) hook accepts printf pipe to path" test_r
 
 echo "---"
 if [ "$fail_count" -eq 0 ]; then
