@@ -41,14 +41,19 @@ s = re.sub(r"\"(\\\\.|[^\"\\\\])*\"", "", s)
 # 4. Whole-remainder match: wrapper + option words only. The character
 # classes exclude newlines and all shell metacharacters, so nothing can be
 # chained, redirected, or smuggled on another line.
-DELEG = r"[\w./~+:@-]*oc-delegate(\.sh)?"
+# DELEG anchors the BASENAME: any path prefix must end in "/", so the final
+# component is exactly oc-delegate / oc-delegate.sh — a lookalike such as
+# "backdoor-oc-delegate" cannot match. The pipe head is restricted to echo /
+# printf (literal-only); `cat` is deliberately excluded so this gate does not
+# allow streaming an arbitrary readable file to the external model.
+DELEG = r"(?:[\w./~+:@-]*/)?oc-delegate(?:\.sh)?"
 WORDS = r"[ \t\w./~+:@=,%-]*"
 form1 = re.fullmatch(r"[ \t]*" + DELEG + WORDS, s)
-form2 = re.fullmatch(r"[ \t]*(echo|printf|cat)" + WORDS + r"\|[ \t]*" + DELEG + WORDS, s)
+form2 = re.fullmatch(r"[ \t]*(echo|printf)" + WORDS + r"\|[ \t]*" + DELEG + WORDS, s)
 sys.exit(0 if (form1 or form2) else 1)
 '; then
   exit 0
 fi
 
-echo "[opencode-delegate] blocked: this subagent may only run oc-delegate / oc-delegate.sh via Bash (bare name or unquoted path; single command, no chaining/substitution; pipe prompts with echo/printf/cat | oc-delegate -). Delegate file work to opencode; verification is the caller's job." >&2
+echo "[opencode-delegate] blocked: this subagent may only run oc-delegate / oc-delegate.sh via Bash (bare name or unquoted path; single command, no chaining/substitution; pipe literal prompts with echo/printf | oc-delegate -). Delegate file work to opencode via --dir; verification is the caller's job." >&2
 exit 2

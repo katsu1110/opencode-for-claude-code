@@ -95,16 +95,23 @@ model_for_tier() {
 }
 
 # --- parse a duration like 10m / 300s / 600 into seconds ---
+# Strip the unit, then validate the numeric part: a bad suffix such as "10ms"
+# must fail loudly, not silently yield a non-integer that later breaks the
+# watchdog's arithmetic and fakes an instant timeout.
 to_seconds() {
-  local d="$1"
+  local d="$1" n mult
   case "$d" in
-    *m) echo $(( ${d%m} * 60 )) ;;
-    *s) echo "${d%s}" ;;
-    *h) echo $(( ${d%h} * 3600 )) ;;
-    *[!0-9]*) die "bad --timeout '$d' (use e.g. 10m, 300s)" ;;
-    '') die "bad --timeout ''" ;;
-    *) echo "$d" ;;
+    '')        die "bad --timeout ''" ;;
+    *m)        n="${d%m}"; mult=60 ;;
+    *s)        n="${d%s}"; mult=1 ;;
+    *h)        n="${d%h}"; mult=3600 ;;
+    *[!0-9]*)  die "bad --timeout '$d' (use e.g. 10m, 300s)" ;;
+    *)         n="$d"; mult=1 ;;
   esac
+  case "$n" in
+    ''|*[!0-9]*) die "bad --timeout '$d' (use e.g. 10m, 300s)" ;;
+  esac
+  echo $(( n * mult ))
 }
 
 # --- arg parsing ---
@@ -164,13 +171,13 @@ CMD=("$OPENCODE_BIN" "run" "-m" "$MODEL")
 [ -n "$SESSION_ID" ] && CMD+=("--session" "$SESSION_ID")
 CMD+=("$PROMPT")
 
+# --- run with a portable wall-clock guard (no timeout(1) on macOS) ---
+SECS="$(to_seconds "$TIMEOUT")"
+
 if [ "$PRINT_CMD" -eq 1 ]; then
   printf '%q ' "${CMD[@]}"; printf '\n'
   exit 0
 fi
-
-# --- run with a portable wall-clock guard (no timeout(1) on macOS) ---
-SECS="$(to_seconds "$TIMEOUT")"
 OUT="$(mktemp)"; ERR="$(mktemp)"; TIMED_OUT_MARK="$(mktemp)"
 rm -f "$TIMED_OUT_MARK"
 RUN_PID=""; WATCHDOG=""
