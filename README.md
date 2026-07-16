@@ -1,6 +1,6 @@
 # opencode-for-claude-code
 
-A Claude Code plugin that lets Claude delegate well-scoped work to OpenCode Go models via the headless `opencode run` CLI. Claude acts as the conductor (handling planning, the hard 20%, and verification), while OpenCode Go models serve as the cheap executors for high-volume tasks. It is modeled directly on the cost-aware architecture of `antigravity-for-claude-code`.
+A Claude Code plugin that lets Claude delegate well-scoped work to OpenCode Go models via the headless `opencode run` CLI. Claude acts as the conductor (handling planning, the hard 20%, and verification), while OpenCode Go models serve as the cheap executors for high-volume tasks. It is modeled directly on the cost-aware architecture of [`antigravity-for-claude-code`](https://github.com/yuting0624/antigravity-for-claude-code).
 
 ## What it is
 
