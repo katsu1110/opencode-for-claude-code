@@ -112,4 +112,5 @@ The wrapper exits non-zero and prints an `OC_SIGNAL {...}` line on failure:
 - `11` auth required → tell the caller to run `opencode auth login` interactively.
 - `12` timeout → suggest a larger `--timeout` or a narrower task.
 - `13` opencode missing → report the install step (`curl -fsSL https://opencode.ai/install | bash`).
+- `14` model unavailable → tell the caller to run `opencode models --refresh` and fix the model/tier option.
 - `2` generic run failed · `3` empty output → report the stderr and suggest `--tier pro` or a sharper spec.

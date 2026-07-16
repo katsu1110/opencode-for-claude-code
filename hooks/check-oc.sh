@@ -15,7 +15,7 @@ if [ -z "$OPENCODE_BIN" ]; then
   exit 0
 fi
 
-if ! opencode --version >/dev/null 2>&1; then
+if ! "$OPENCODE_BIN" --version >/dev/null 2>&1; then
   echo "[opencode plugin] Warning: opencode is on PATH but '--version' failed — it may need authentication (run \`opencode auth login\`)." >&2
 fi
 
