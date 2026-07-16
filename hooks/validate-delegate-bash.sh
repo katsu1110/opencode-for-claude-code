@@ -2,7 +2,8 @@
 #
 # PreToolUse(Bash) gate for the `opencode-delegate` subagent.
 # Allow a Bash call ONLY when it invokes the plugin's delegation wrapper
-# (oc-delegate / oc-delegate.sh); block everything else with exit code 2.
+# (oc-delegate / oc-delegate.sh / oc-job / oc-job.sh / oc-cost-compare);
+# block everything else with exit code 2.
 #
 # Validation is a whole-string match, not a substring scan: quoted prompt text
 # is stripped first, then the remainder may contain nothing but the wrapper
@@ -42,11 +43,11 @@ s = re.sub(r"\"(\\\\.|[^\"\\\\])*\"", "", s)
 # classes exclude newlines and all shell metacharacters, so nothing can be
 # chained, redirected, or smuggled on another line.
 # DELEG anchors the BASENAME: any path prefix must end in "/", so the final
-# component is exactly oc-delegate / oc-delegate.sh — a lookalike such as
-# "backdoor-oc-delegate" cannot match. The pipe head is restricted to echo /
-# printf (literal-only); `cat` is deliberately excluded so this gate does not
-# allow streaming an arbitrary readable file to the external model.
-DELEG = r"(?:[\w./~+:@-]*/)?oc-delegate(?:\.sh)?"
+# component is exactly oc-delegate (or oc-job, oc-cost-compare) — a lookalike
+# such as "backdoor-oc-delegate" cannot match. The pipe head is restricted to
+# echo / printf (literal-only); `cat` is deliberately excluded so this gate
+# does not allow streaming an arbitrary readable file to the external model.
+DELEG = r"(?:[\w./~+:@-]*/)?(?:oc-delegate|oc-job|oc-cost-compare)(?:\.sh)?"
 WORDS = r"[ \t\w./~+:@=,%-]*"
 form1 = re.fullmatch(r"[ \t]*" + DELEG + WORDS, s)
 form2 = re.fullmatch(r"[ \t]*(echo|printf)" + WORDS + r"\|[ \t]*" + DELEG + WORDS, s)
@@ -55,5 +56,5 @@ sys.exit(0 if (form1 or form2) else 1)
   exit 0
 fi
 
-echo "[opencode-delegate] blocked: this subagent may only run oc-delegate / oc-delegate.sh via Bash (bare name or unquoted path; single command, no chaining/substitution; pipe literal prompts with echo/printf | oc-delegate -). Delegate file work to opencode via --dir; verification is the caller's job." >&2
+echo "[opencode-delegate] blocked: this subagent may only run oc-delegate / oc-job / oc-cost-compare via Bash (bare name or unquoted path; single command, no chaining/substitution; pipe literal prompts with echo/printf | oc-delegate -). Delegate file work to opencode via --dir; verification is the caller's job." >&2
 exit 2
