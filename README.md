@@ -1,6 +1,6 @@
 # opencode-for-claude-code
 
-A Claude Code plugin that lets Claude delegate well-scoped work to OpenCode Go models via the headless `opencode run` CLI. Claude acts as the conductor (handling planning, the hard 20%, and verification), while OpenCode Go models serve as the cheap executors for high-volume tasks. It is modeled directly on the cost-aware architecture of `antigravity-for-claude-code`.
+A Claude Code plugin that lets Claude delegate well-scoped work to OpenCode Go models via the headless `opencode run` CLI. Claude acts as the conductor (handling planning, the hard 20%, and verification), while OpenCode Go models serve as the cheap executors for high-volume tasks. It is modeled directly on the cost-aware architecture of [`antigravity-for-claude-code`](https://github.com/yuting0624/antigravity-for-claude-code).
 
 ## What it is
 
@@ -54,6 +54,7 @@ Options:
   -d, --dir <path>              Directory to run in (single dir — opencode limit)
       --timeout <dur>           Wall-clock timeout, e.g. 10m, 300s (default: 10m)
       --write                   Allow file writes / commands (DANGEROUS; run on a branch)
+      --mode accept-edits|plan    Execution mode (accept-edits maps to --auto; plan touches nothing)
       --digest                  Append a digest-only output contract to the prompt
   -c, --continue                Resume the most recent opencode session
   -s, --session <id>            Resume a specific opencode session by id
@@ -65,7 +66,8 @@ Options:
 
 ## Exit Codes & OC_SIGNAL
 
-- `0` ok | `1` usage | `2` run failed | `3` empty | `10` quota | `11` auth | `12` timeout | `13` opencode missing
+- `0` ok | `1` usage | `2` run failed | `3` empty
+- `10` quota | `11` auth | `12` timeout | `13` opencode missing | `14` model unavailable
 - On classifiable failures, a machine-readable JSON line is printed to stderr: `OC_SIGNAL {"status":"...","reason":"..."}`
 
 ## Cost Discipline Summary
@@ -86,6 +88,8 @@ Options:
 Available in `.claude-plugin/plugin.json`:
 - `default_tier`: Default tier (`flash`).
 - `timeout`: Default timeout (`10m`).
+- `coding_policy`: Inject the cost-aware routing policy at SessionStart (`on`/`off`).
+- `delegation_nudge`: Add a delegation nudge on bulk-looking prompts (`on`/`off`).
 - `default_model`: Exact model to override tier mapping.
 - `tier_flash`, `tier_code`, `tier_pro`: Custom mappings for the three tiers.
 - `digest_warn_chars`: Warning threshold for large outputs (default 8000).

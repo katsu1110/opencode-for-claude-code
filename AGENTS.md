@@ -25,8 +25,9 @@ It is deliberately modeled on the `antigravity-for-claude-code` plugin.
 
 ## Hard rules
 
-- Bash only, `set -euo pipefail`, POSIX-leaning; no dependencies beyond
-  bash + coreutils + grep/sed. Must run on macOS (no `timeout(1)`, BSD sed) and Linux.
+- Bash + Python only, `set -euo pipefail`, POSIX-leaning; dependencies limited to
+  bash + coreutils + grep/sed + python3 for JSON parsing/token accounting.
+  Must run on macOS (no `timeout(1)`, BSD sed) and Linux.
 - Exit-code contract of `oc-delegate.sh` is frozen:
   `0 ok | 1 usage | 2 run failed | 3 empty | 10 quota | 11 auth | 12 timeout | 13 opencode missing`.
 - Classifiable failures MUST print a single-line `OC_SIGNAL {json}` to stderr.

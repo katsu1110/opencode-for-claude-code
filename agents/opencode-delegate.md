@@ -1,10 +1,12 @@
 ---
 name: opencode-delegate
 description: |
-  Use this subagent to hand a well-scoped, ABOVE-break-even unit of work to the
-  OpenCode Go models through the plugin wrapper — bulk scaffolding,
-  exhaustive test generation, migrations, long-context reads that distill to a
-  digest. Its only file-acting tool is the
+  Use this subagent PROACTIVELY — don't wait for the user to ask for delegation —
+  whenever a task contains a well-scoped, ABOVE-break-even unit of work for
+  OpenCode Go: bulk scaffolding, exhaustive test generation, migrations,
+  long-context reads that distill to a digest, or fan-out web search. Proactive
+  means YOU decide without being prompted — not that you delegate everything: the
+  break-even judgment is yours, every time. Its only file-acting tool is the
   delegation wrapper, so the file generation and bulky reading happen on OpenCode Go
   and do NOT spend Claude tokens. It returns opencode's DIGEST for the caller to verify
   — it does not itself ship or claim success.
@@ -52,8 +54,8 @@ claim success** — verification is the caller's (Claude's) job.
 ## Core rule — everything goes through the wrapper
 
 You have **no `Write` and no `Edit`**, and a `PreToolUse` gate **blocks every Bash
-command except the delegation wrapper** (`oc-delegate` / `oc-delegate.sh`). So all
-file creation/editing and bulky work must be performed by opencode, not by you — you
+command except the delegation wrapper** (`oc-delegate` / `oc-job` / `oc-cost-compare`).
+So all file creation/editing and bulky work must be performed by opencode, not by you — you
 cannot write files even via the shell. Never reconstruct file contents in your reply.
 
 ```bash
@@ -110,4 +112,5 @@ The wrapper exits non-zero and prints an `OC_SIGNAL {...}` line on failure:
 - `11` auth required → tell the caller to run `opencode auth login` interactively.
 - `12` timeout → suggest a larger `--timeout` or a narrower task.
 - `13` opencode missing → report the install step (`curl -fsSL https://opencode.ai/install | bash`).
+- `14` model unavailable → tell the caller to run `opencode models --refresh` and fix the model/tier option.
 - `2` generic run failed · `3` empty output → report the stderr and suggest `--tier pro` or a sharper spec.

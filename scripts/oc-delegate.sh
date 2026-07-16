@@ -32,6 +32,10 @@
 #                                 run on a branch/worktree)
 #       --digest                  Append a digest-only output contract to the prompt
 #                                 (ingest digests, not raw dumps — the biggest cost lever)
+#       --mode <accept-edits|plan>
+#                                 Execution mode (opencode uses --auto for writes;
+#                                 --mode provides a consistent API surface matching
+#                                 the subagent interface)
 #   -c, --continue                Resume the most recent opencode session (stateful)
 #   -s, --session <id>            Resume a specific opencode session by id (stateful)
 #   -m, --model <provider/model>  Exact model (any from `opencode models`)
@@ -39,7 +43,8 @@
 #       --print-command           Print the resolved opencode command and exit (dry run)
 #   -h, --help                    Show this help
 #
-# Exit codes: 0 ok | 1 usage | 2 run failed | 3 empty | 10 quota | 11 auth | 12 timeout | 13 opencode missing
+# Exit codes: 0 ok | 1 usage | 2 run failed | 3 empty | 10 quota | 11 auth | 12 timeout
+#            | 13 opencode missing | 14 model unavailable
 #
 # On a classifiable failure, a machine-readable line is printed to stderr:
 #   OC_SIGNAL {"status":"QUOTA_EXHAUSTED","reason":"...","model":"...","retry":"--continue"}
@@ -55,6 +60,7 @@ TIMEOUT="${CLAUDE_PLUGIN_OPTION_TIMEOUT:-10m}"
 TIER_EXPLICIT=0
 MODEL=""
 VARIANT=""
+MODE=""
 WRITE=0
 DIGEST=0
 RUN_DIR=""
@@ -122,6 +128,10 @@ while [ $# -gt 0 ]; do
     -d|--dir)       need $# "$1"; [ -n "$RUN_DIR" ] && die "--dir given twice (opencode run takes a single --dir)"; RUN_DIR="$2"; shift 2 ;;
     --timeout)      need $# "$1"; TIMEOUT="$2"; shift 2 ;;
     --write)        WRITE=1; shift ;;
+    --mode)         need $# "$1"; MODE="$2"; shift 2
+                    case "$MODE" in accept-edits|plan) ;;
+                      *) die "invalid --mode '$MODE' (use accept-edits | plan)" ;;
+                    esac ;;
     --digest)       DIGEST=1; shift ;;
     -c|--continue)  CONTINUE=1; shift ;;
     -s|--session)   need $# "$1"; SESSION_ID="$2"; shift 2 ;;
@@ -136,7 +146,29 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$PROMPT" ] || die "empty prompt"
+
+# WSL slow-mount guard: opencode reads the workspace over a 9p bridge from /mnt/*,
+# making even trivial calls slow. Warn (don't fail); fix is to move the repo to the
+# WSL Linux filesystem.
+if grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]; then
+  case "${RUN_DIR:-}" in
+    /mnt/*) echo "oc-delegate: note: --dir '$RUN_DIR' starts with /mnt — on WSL this is a Windows mount read over a slow 9p bridge (calls can take 20s+). Move the repo into the WSL Linux FS (~) for ~10x faster I/O." >&2 ;;
+  esac
+fi
+
 [ -n "$RUN_DIR" ] && [ ! -d "$RUN_DIR" ] && die "--dir '$RUN_DIR' is not a directory"
+
+# Write-task heuristic: warn when the prompt looks like a write task but --write
+# (or --mode accept-edits) is not set. Headless opencode without --auto describes
+# edits but writes no files while still reporting success.
+if [ "$WRITE" -eq 0 ] && [ "$MODE" != "accept-edits" ] && [ "$PRINT_CMD" -ne 1 ]; then
+  shopt -s nocasematch
+  case "$PROMPT" in
+    *implement*|*scaffold*|*migrate*|*refactor*|*"write the file"*|*"create the file"*|*"edit the file"*)
+      echo "oc-delegate: note: this looks like a write task but neither --write nor --mode accept-edits is set — headless opencode will describe the edits but may NOT actually write to your workspace while still reporting success. Use --write to grant permissions; run write tasks on a branch." >&2 ;;
+  esac
+  shopt -u nocasematch
+fi
 
 # Model precedence: explicit --model > explicit --tier > userConfig default_model > default tier.
 if [ -z "$MODEL" ]; then
@@ -167,6 +199,7 @@ CMD=("$OPENCODE_BIN" "run" "-m" "$MODEL")
 [ -n "$RUN_DIR" ] && CMD+=("--dir" "$RUN_DIR")
 [ -n "$VARIANT" ] && CMD+=("--variant" "$VARIANT")
 [ "$WRITE" -eq 1 ] && CMD+=("--auto")
+[ "$MODE" = "accept-edits" ] && [ "$WRITE" -eq 0 ] && CMD+=("--auto")
 [ "$CONTINUE" -eq 1 ] && CMD+=("--continue")
 [ -n "$SESSION_ID" ] && CMD+=("--session" "$SESSION_ID")
 CMD+=("$PROMPT")
@@ -233,6 +266,11 @@ if [ "$RC" -ne 0 ]; then
     signal "AUTH_REQUIRED" "$STDERR_TXT"
     echo "oc-delegate: authentication failed. Run 'opencode auth login' (or /connect in the TUI)." >&2
     exit 11
+  fi
+  if printf '%s' "$STDERR_TXT" | grep -qiE 'model.*not found|model.*unavailable|model.*not supported|no such model'; then
+    signal "MODEL_UNAVAILABLE" "$STDERR_TXT"
+    echo "oc-delegate: model '$MODEL' not found in \`opencode models\`. Run \`opencode models --refresh\` to see available models." >&2
+    exit 14
   fi
   signal "RUN_FAILED" "$STDERR_TXT"
   echo "oc-delegate: opencode run failed (exit $RC)" >&2

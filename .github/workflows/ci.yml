@@ -1,0 +1,31 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: ShellCheck (errors gate)
+        run: shellcheck --severity=error scripts/*.sh tests/*.sh hooks/*.sh
+
+      - name: ShellCheck (warnings, advisory)
+        run: shellcheck --severity=warning scripts/*.sh tests/*.sh hooks/*.sh || true
+
+      - name: Validate JSON manifests
+        run: |
+          python3 - <<'PY'
+          import json
+          for p in (".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", "prices.json",
+                    "hooks/hooks.json"):
+              json.load(open(p))
+              print("ok", p)
+          PY
+
+      - name: Tests (stubs opencode; no network)
+        run: bash tests/run-tests.sh
