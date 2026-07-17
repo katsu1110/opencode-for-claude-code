@@ -13,14 +13,19 @@ It is deliberately modeled on the `antigravity-for-claude-code` plugin.
 
 - `.claude-plugin/plugin.json` — plugin manifest + userConfig options.
 - `bin/oc-delegate` — PATH shim; forwards to `scripts/oc-delegate.sh`.
+- `bin/oc-diagnose` — PATH shim for `/opencode:diagnose`.
 - `scripts/oc-delegate.sh` — THE core wrapper. Its header comment is the CLI
   contract (options, exit codes, OC_SIGNAL). Keep header and behavior in sync.
 - `scripts/doctor.sh` — install/auth/model checks.
+- `scripts/diagnose.sh` — engine for `/opencode:diagnose` (conductor/executor showcase).
 - `skills/opencode/SKILL.md` — routing policy loaded by Claude on demand.
 - `agents/opencode-delegate.md` — subagent whose only file-acting tool is the wrapper.
-- `commands/*.md` — /opencode:delegate, /opencode:setup, /opencode:review.
+- `commands/*.md` — /opencode:delegate, /opencode:setup, /opencode:review,
+  /opencode:diagnose, /opencode:research, /opencode:status, /opencode:result,
+  /opencode:cancel.
 - `hooks/` — SessionStart check (`check-oc.sh`, silent when healthy) and the
   subagent Bash gate (`validate-delegate-bash.sh`).
+- `docs/` — TROUBLESHOOTING.md, DEMO-KIT.md, AB-RESULTS.md, plan.md.
 - `tests/run-tests.sh` — OFFLINE tests only (no live API calls, no network).
 
 ## Hard rules
@@ -29,7 +34,7 @@ It is deliberately modeled on the `antigravity-for-claude-code` plugin.
   bash + coreutils + grep/sed + python3 for JSON parsing/token accounting.
   Must run on macOS (no `timeout(1)`, BSD sed) and Linux.
 - Exit-code contract of `oc-delegate.sh` is frozen:
-  `0 ok | 1 usage | 2 run failed | 3 empty | 10 quota | 11 auth | 12 timeout | 13 opencode missing`.
+  `0 ok | 1 usage | 2 run failed | 3 empty | 10 quota | 11 auth | 12 timeout | 13 opencode missing | 14 model unavailable`.
 - Classifiable failures MUST print a single-line `OC_SIGNAL {json}` to stderr.
 - Success MUST mean non-empty stdout.
 - Tests must pass without an `opencode` login and without network: use
