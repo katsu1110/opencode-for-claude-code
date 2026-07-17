@@ -8,6 +8,7 @@ PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$PLUGIN_DIR/scripts/oc-delegate.sh"
 JOB="$PLUGIN_DIR/scripts/oc-job.sh"
 COST="$PLUGIN_DIR/scripts/oc-cost-compare.sh"
+DIAG="$PLUGIN_DIR/scripts/diagnose.sh"
 MEASURE="$PLUGIN_DIR/scripts/measure-session.py"
 
 export CLAUDE_PLUGIN_OPTION_TIER_FLASH="opencode-go/deepseek-v4-flash"
@@ -225,12 +226,17 @@ test_aa() {
   printf '%s' '{"tool_input":{"command":"oc-cost-compare --tier flash hello"}}' | "$HOOK" 2>/dev/null
 }
 
+# (aaa) hook accepts oc-diagnose
+test_aaa() {
+  printf '%s' '{"tool_input":{"command":"oc-diagnose --dir . error.log"}}' | "$HOOK" 2>/dev/null
+}
+
 # ======= bin/ shim tests =======
 BIN="$PLUGIN_DIR/bin"
 
 # (ab) bin/ shims exist and are executable
 test_ab() {
-  for b in oc-delegate oc-job oc-doctor oc-cost-compare; do
+  for b in oc-delegate oc-job oc-doctor oc-cost-compare oc-diagnose; do
     [ -x "$BIN/$b" ] || return 1
   done
   return 0
@@ -369,7 +375,7 @@ assert os.path.isfile(p(m.group(1))), "agent gate references missing file: " + m
 for s in ("hooks/check-oc.sh", "hooks/inject-policy.sh", "hooks/validate-delegate-bash.sh", "hooks/nudge-delegation.sh"):
     assert os.access(p(s), os.X_OK), "not executable: " + s
 
-for b in ("oc-delegate", "oc-job", "oc-doctor", "oc-cost-compare"):
+for b in ("oc-delegate", "oc-job", "oc-doctor", "oc-cost-compare", "oc-diagnose"):
     assert os.access(p("bin", b), os.X_OK), "bin entrypoint missing/not executable: bin/" + b
 
 for f in glob.glob(p("commands", "*.md")) + [p("skills", "opencode", "SKILL.md")]:
@@ -475,6 +481,7 @@ run_test "(x)  hook rejects cat pipe" test_x
 run_test "(y)  hook accepts printf pipe to path" test_y
 run_test "(z)  hook accepts oc-job" test_z
 run_test "(aa) hook accepts oc-cost-compare" test_aa
+run_test "(aaa) hook accepts oc-diagnose" test_aaa
 run_test "(ab) bin/ shims exist and executable" test_ab
 run_test "(ac) bin/oc-job forwards" test_ac
 run_test "(ad) bin/oc-doctor forwards" test_ad
@@ -498,6 +505,57 @@ run_test "(au) oc-cost-compare no-prompt exits 1" test_au
 run_test "(av) measure-session missing file exits 1" test_av
 run_test "(aw) measure-session with valid data" test_aw
 run_test "(ax) prices.json valid JSON" test_ax
+
+# ======= diagnose.sh tests =======
+# (ay) diagnose --help shows full usage including option list
+test_ay() {
+  out="$("$DIAG" --help 2>/dev/null)"
+  echo "$out" | grep -qi "usage" && echo "$out" | grep -qi "\-\-tier"
+}
+
+# (az) diagnose with no args exits 1
+test_az() {
+  ! "$DIAG" 2>/dev/null
+}
+
+# (az2) diagnose rejects option without value
+test_az2() {
+  ! "$DIAG" --tier 2>/dev/null && ! "$DIAG" --dir 2>/dev/null && ! "$DIAG" --timeout 2>/dev/null
+}
+
+# (ba) diagnose with existing file works (dry-run)
+test_ba() {
+  TMP_LOG="$TMP_DIR/err.log"
+  echo "ERROR: test failure" > "$TMP_LOG"
+  out="$("$DIAG" --print-command "$TMP_LOG" 2>/dev/null)"
+  echo "$out" | grep -qi -- "-m opencode-go"
+}
+
+# (bb) bin/oc-diagnose forwards to diagnose script
+test_bb() {
+  out="$("$BIN/oc-diagnose" --help 2>/dev/null)"
+  echo "$out" | grep -qi "usage" && echo "$out" | grep -qi "\-\-tier"
+}
+
+# (bc) diagnose with stdin (-) works (dry-run)
+test_bc() {
+  out="$(echo "ERROR: test failure" | "$DIAG" --print-command - 2>/dev/null)"
+  echo "$out" | grep -qi -- "-m opencode-go"
+}
+
+# (bd) diagnose honors CLAUDE_PLUGIN_OPTION_DEFAULT_TIER
+test_bd() {
+  out="$(CLAUDE_PLUGIN_OPTION_DEFAULT_TIER=pro "$DIAG" --print-command "$TMP_DIR/err.log" 2>/dev/null)"
+  echo "$out" | grep -q -- "-m opencode-go/glm-5.2"
+}
+
+run_test "(ay) diagnose --help shows full usage" test_ay
+run_test "(az) diagnose no-args exits 1" test_az
+run_test "(az2) diagnose missing option value exits 1" test_az2
+run_test "(ba) diagnose file works" test_ba
+run_test "(bb) bin/oc-diagnose forwards" test_bb
+run_test "(bc) diagnose stdin works" test_bc
+run_test "(bd) diagnose honors plugin env defaults" test_bd
 
 echo "---"
 if [ "$fail_count" -eq 0 ]; then
